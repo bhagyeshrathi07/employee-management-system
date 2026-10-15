@@ -1,0 +1,565 @@
+{
+  "info": {
+    "name": "Kloudspot Employee Management System",
+    "_postman_id": "7f3b9c2e-5d1a-4e8b-9c6f-2a1b3c4d5e6f",
+    "description": "REST API collection for the Kloudspot Candidate Technical Assessment.\n\nAll `/api/**` endpoints use HTTP Basic auth, pre-configured at collection level with `{{username}}` / `{{password}}` (admin / admin123).\n\nSet `{{baseUrl}}` to `http://localhost:8080` (default) when running locally or via Docker Compose.\n\nRun the **Employees > Create employee** request first: it stores the new record's id in `{{createdEmployeeId}}` for the update / delete requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "basic",
+    "basic": [
+      { "key": "username", "value": "{{username}}", "type": "string" },
+      { "key": "password", "value": "{{password}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "apiPrefix", "value": "/api/v1", "type": "string" },
+    { "key": "username", "value": "admin", "type": "string" },
+    { "key": "password", "value": "admin123", "type": "string" },
+    { "key": "employeeId", "value": "1", "type": "string" },
+    { "key": "createdEmployeeId", "value": "", "type": "string" }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Response time is acceptable (< 2s)', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Current user (verify credentials)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "me"]
+            },
+            "description": "Returns the authenticated principal. The React login page calls this endpoint to validate credentials."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Authenticated as admin', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.username).to.eql('admin');",
+                  "    pm.expect(body.authenticated).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Unauthenticated request (401, no WWW-Authenticate)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees"]
+            },
+            "description": "Demonstrates the custom AuthenticationEntryPoint: JSON 401 body without the `WWW-Authenticate: Basic` header, so browsers never show the native login popup."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('No WWW-Authenticate header', () => pm.expect(pm.response.headers.has('WWW-Authenticate')).to.be.false);",
+                  "pm.test('JSON error envelope', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(401);",
+                  "    pm.expect(body.error).to.eql('Unauthorized');",
+                  "    pm.expect(body.message).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Employees",
+      "item": [
+        {
+          "name": "List employees (paginated)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees?page=0&size=10&sortBy=id&sortDir=asc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees"],
+              "query": [
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" },
+                { "key": "sortBy", "value": "id", "description": "id | employeeId | fullName | email | department | designation | dateOfJoining | salary | status | createdAt | updatedAt" },
+                { "key": "sortDir", "value": "asc", "description": "asc | desc" }
+              ]
+            },
+            "description": "Returns a `PagedResponse` with `content`, `pageNumber`, `pageSize`, `totalElements`, `totalPages` and `last`. With the seed data this yields 25 records across 3 pages."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Paged envelope shape', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.all.keys('content', 'pageNumber', 'pageSize', 'totalElements', 'totalPages', 'last');",
+                  "    pm.expect(body.content).to.be.an('array');",
+                  "    pm.expect(body.pageSize).to.eql(10);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Search + filter (search, department, status)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees?search=aarav&department=ENGINEERING&status=ACTIVE&page=0&size=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees"],
+              "query": [
+                { "key": "search", "value": "aarav", "description": "Case-insensitive match on fullName OR email" },
+                { "key": "department", "value": "ENGINEERING", "description": "ENGINEERING | PRODUCT | DESIGN | MARKETING | SALES | HR | FINANCE | OPERATIONS" },
+                { "key": "status", "value": "ACTIVE", "description": "ACTIVE | INACTIVE" },
+                { "key": "page", "value": "0" },
+                { "key": "size", "value": "10" }
+              ]
+            },
+            "description": "All three filters are combined in a single JPA Specification query."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Every result matches the filters', () => {",
+                  "    const body = pm.response.json();",
+                  "    body.content.forEach((e) => {",
+                  "        pm.expect(e.department).to.eql('ENGINEERING');",
+                  "        pm.expect(e.status).to.eql('ACTIVE');",
+                  "        pm.expect((e.fullName + ' ' + e.email).toLowerCase()).to.include('aarav');",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Get employee by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees/{{employeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "{{employeeId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Employee DTO fields present', () => {",
+                  "    const body = pm.response.json();",
+                  "    ['id','employeeId','fullName','email','phoneNumber','department','designation','dateOfJoining','salary','status','createdAt','updatedAt']",
+                  "        .forEach((k) => pm.expect(body).to.have.property(k));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Create employee (auto-generated employeeId)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Postman Tester\",\n  \"email\": \"postman.tester@kloudspot.com\",\n  \"phoneNumber\": \"+91 90000 11111\",\n  \"department\": \"PRODUCT\",\n  \"designation\": \"QA Analyst\",\n  \"dateOfJoining\": \"2024-06-03\",\n  \"salary\": 950000.00,\n  \"status\": \"ACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees"]
+            },
+            "description": "`employeeId` is omitted so the service generates the next free `EMP-XXXX` code. Stores the new id in `{{createdEmployeeId}}`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', () => pm.response.to.have.status(201));",
+                  "pm.test('Location header points at the new resource', () => pm.expect(pm.response.headers.get('Location')).to.include('/api/v1/employees/'));",
+                  "const body = pm.response.json();",
+                  "pm.test('employeeId auto-generated as EMP-XXXX', () => pm.expect(body.employeeId).to.match(/^EMP-\\d{4,}$/));",
+                  "pm.collectionVariables.set('createdEmployeeId', body.id);"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Create employee (explicit employeeId)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"EMP-2001\",\n  \"fullName\": \"Nina Kapoor\",\n  \"email\": \"nina.kapoor@kloudspot.com\",\n  \"phoneNumber\": \"+91 90000 22222\",\n  \"department\": \"DESIGN\",\n  \"designation\": \"Product Designer\",\n  \"dateOfJoining\": \"2023-09-18\",\n  \"salary\": 1150000,\n  \"status\": \"ACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201 (or 409 if EMP-2001 already exists from a previous run)', () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Update employee",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Postman Tester\",\n  \"email\": \"postman.tester@kloudspot.com\",\n  \"phoneNumber\": \"+91 90000 11111\",\n  \"department\": \"PRODUCT\",\n  \"designation\": \"Senior QA Analyst\",\n  \"dateOfJoining\": \"2024-06-03\",\n  \"salary\": 1050000.00,\n  \"status\": \"INACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees/{{createdEmployeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "{{createdEmployeeId}}"]
+            },
+            "description": "Uses `{{createdEmployeeId}}` from the create request. Omitting `employeeId` keeps the existing code."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Fields updated', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.designation).to.eql('Senior QA Analyst');",
+                  "    pm.expect(body.status).to.eql('INACTIVE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Export CSV (respects filters)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "text/csv" }],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees/export/csv?department=FINANCE&status=ACTIVE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "export", "csv"],
+              "query": [
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "department", "value": "FINANCE" },
+                { "key": "status", "value": "ACTIVE" }
+              ]
+            },
+            "description": "Streams RFC 4180 CSV (`Content-Disposition: attachment; filename=\"employees.csv\"`). Use **Send and Download** in Postman to save the file."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('CSV content type and attachment', () => {",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv');",
+                  "    pm.expect(pm.response.headers.get('Content-Disposition')).to.include('employees.csv');",
+                  "});",
+                  "pm.test('Header row present', () => pm.expect(pm.response.text()).to.match(/^ID,Employee ID,Full Name,Email/));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Delete employee",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees/{{createdEmployeeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "{{createdEmployeeId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Departments",
+      "item": [
+        {
+          "name": "Department summary (headcounts)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/departments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "departments"]
+            },
+            "description": "Returns all 8 departments with `displayName`, `totalEmployees` and `activeEmployees`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('All 8 departments returned', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.lengthOf(8);",
+                  "    body.forEach((d) => pm.expect(d).to.have.all.keys('department', 'displayName', 'totalEmployees', 'activeEmployees'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Error handling",
+      "item": [
+        {
+          "name": "404 - employee not found",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees/999999",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees", "999999"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Standard error envelope', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.include.keys('timestamp', 'status', 'error', 'message');",
+                  "    pm.expect(body.message).to.eql('Employee not found with id: 999999');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "400 - validation errors",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"A\",\n  \"email\": \"not-an-email\",\n  \"phoneNumber\": \"12\",\n  \"designation\": \"\",\n  \"salary\": -5\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('validationErrors map returned', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.validationErrors).to.be.an('object');",
+                  "    ['fullName', 'email', 'phoneNumber', 'department', 'designation', 'dateOfJoining', 'salary', 'status']",
+                  "        .forEach((f) => pm.expect(body.validationErrors).to.have.property(f));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "409 - duplicate email",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Duplicate Person\",\n  \"email\": \"AARAV.SHARMA@kloudspot.com\",\n  \"phoneNumber\": \"+91 90000 33333\",\n  \"department\": \"SALES\",\n  \"designation\": \"Account Executive\",\n  \"dateOfJoining\": \"2024-01-01\",\n  \"salary\": 500000,\n  \"status\": \"ACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees"]
+            },
+            "description": "Email uniqueness is case-insensitive; `aarav.sharma@kloudspot.com` exists in the seed data."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Conflict message names the email', () => pm.expect(pm.response.json().message).to.include('aarav.sharma@kloudspot.com'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "409 - duplicate employeeId",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"EMP-1001\",\n  \"fullName\": \"Duplicate Code\",\n  \"email\": \"duplicate.code@kloudspot.com\",\n  \"phoneNumber\": \"+91 90000 44444\",\n  \"department\": \"HR\",\n  \"designation\": \"Recruiter\",\n  \"dateOfJoining\": \"2024-01-01\",\n  \"salary\": 500000,\n  \"status\": \"ACTIVE\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Conflict message names the employeeId', () => pm.expect(pm.response.json().message).to.include('EMP-1001'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "400 - invalid enum query parameter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}{{apiPrefix}}/employees?department=SPACE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "employees"],
+              "query": [{ "key": "department", "value": "SPACE" }]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Message lists allowed values', () => pm.expect(pm.response.json().message).to.include('Allowed values'));"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ]
+}
