@@ -28,7 +28,7 @@ public class OpenApiConfig {
                                 + "All `/api/**` endpoints require HTTP Basic authentication "
                                 + "(default credentials: admin / admin123).")
                         .version("1.0.0")
-                        .contact(new Contact().name("Kloudspot EMS").email("support@kloudspot.example"))
+                        .contact(new Contact().name("Bhagyesh Rathi").email("bhageyesh2161@gmail.com"))
                         .license(new License().name("MIT")))
                 .components(new Components()
                         .addSecuritySchemes(BASIC_AUTH_SCHEME, new SecurityScheme()
