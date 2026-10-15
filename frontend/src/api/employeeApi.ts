@@ -102,6 +102,21 @@ api.interceptors.response.use(
 // Error helpers
 // -------------------------------------------------------------------------------------------------
 
+function fallbackMessageForStatus(status: number): string {
+  switch (status) {
+    case 401:
+      return 'Invalid username or password';
+    case 403:
+      return 'The server refused this request (forbidden). Check CORS / permissions.';
+    case 404:
+      return 'The requested resource was not found';
+    case 500:
+      return 'The server encountered an unexpected error';
+    default:
+      return `Request failed with status ${status}`;
+  }
+}
+
 function isApiErrorBody(value: unknown): value is ApiError {
   return (
     typeof value === 'object' &&
@@ -125,10 +140,7 @@ export function extractApiError(error: unknown): ApiError {
       return {
         status: response.status,
         error: response.statusText || 'Request failed',
-        message:
-          response.status === 401
-            ? 'Invalid username or password'
-            : `Request failed with status ${response.status}`,
+        message: fallbackMessageForStatus(response.status),
       };
     }
     return {

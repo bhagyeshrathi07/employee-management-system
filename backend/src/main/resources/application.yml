@@ -37,7 +37,9 @@ app:
     username: ${APP_SECURITY_USERNAME:admin}
     password: ${APP_SECURITY_PASSWORD:admin123}
   cors:
-    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+    # Origin patterns (Spring allowedOriginPatterns). Covers the Vite dev server, the nginx
+    # container and both localhost / 127.0.0.1 spellings. Override with APP_CORS_ALLOWED_ORIGINS.
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:[*],http://127.0.0.1:[*],http://localhost,http://127.0.0.1}
   seed:
     enabled: ${APP_SEED_ENABLED:true}
 
