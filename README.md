@@ -198,7 +198,7 @@ docker compose down -v            # stop and wipe the database (seed data is re-
 
 ## Demo walkthrough
 
-A complete tour of the application as a reviewer would use it, from login to delete. Every image
+A complete tour of the application, from login to delete. Every image
 was captured from the Docker Compose stack at `http://localhost:3000` and lives in
 [`docs/screenshots/`](docs/screenshots/).
 
