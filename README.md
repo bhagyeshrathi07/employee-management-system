@@ -1,6 +1,6 @@
 # Employee Management System
 
-Full-stack **Employee Management System** built for the **Kloudspot Candidate Technical Assessment**.
+A Full-stack **Employee Management System**
 
 Spring Boot 3.5 REST API + PostgreSQL 16 + React 18 (Vite, TypeScript, Tailwind CSS), secured with
 stateless HTTP Basic authentication, with department KPIs, CSV export, Swagger UI, automated tests
